@@ -1,7 +1,9 @@
 # Artale Timer Player
 
-## [ ⏬ 點此下載最新版本 v1.1.1 安裝包 ]
-https://github.com/a25896a321/Artale_Timer_Player/releases/download/v1.1.1/Artale_Timer_Player_v1.1.1.rar
+## [ ⏬ 點此下載最新版本 v1.1.1 rar ]
+https://github.com/a25896a321/Artale_Timer_Player/releases/download/v1.1.1/Artale_Timer_Player.rar
+## [ ⏬ 點此下載最新版本 v1.1.1 exe ]
+https://github.com/a25896a321/Artale_Timer_Player/releases/download/v1.1.1/Artale_Timer_Player.exe
 
 > 作者：oo_jump　｜　版本：1.1.1　｜　語言：Python 3.10+
 
