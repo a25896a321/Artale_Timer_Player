@@ -1,0 +1,5 @@
+# Artale Timer Player - Python dependencies
+# Run: pip install -r requirements.txt
+
+# GUI image processing (for floating window icons)
+Pillow>=10.0.0
