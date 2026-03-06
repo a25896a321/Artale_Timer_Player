@@ -229,15 +229,14 @@ def minutes_to_str(minutes: int) -> str:
     return f"{minutes // 60}:{minutes % 60:02d}"
 
 
-def format_sequence(seq: tuple, lang: str = 'zh') -> str:
+def format_sequence(seq: tuple, lang: str = 'zh',
+                    show_any_hint: bool = True,
+                    show_seq_hint: bool = True) -> str:
     """
     Convert an action sequence tuple to a readable string.
 
-    Examples (zh):
-      ()           → '無需操作'
-      ('50分',)    → '50分'
-      ('4hr','50分') no x2 → '4hr、50分（任意順序）'
-      ('4hr','x2') → '先選4hr 再選 x2'
+    show_any_hint – append （任意）/(any) for commutative sequences
+    show_seq_hint – append （依序）/(in order) for ordered sequences
     """
     if not seq:
         return '無需操作' if lang == 'zh' else 'No action'
@@ -248,12 +247,12 @@ def format_sequence(seq: tuple, lang: str = 'zh') -> str:
     has_x2 = 'x2' in seq
     if lang == 'zh':
         if not has_x2:
-            return '、'.join(seq) + '（任意順序）'
-        return '先選' + seq[0] + ''.join(f' 再選 {s}' for s in seq[1:])
+            return '、'.join(seq) + ('（任意）' if show_any_hint else '')
+        return ' → '.join(seq) + ('（依序）' if show_seq_hint else '')
     else:
         if not has_x2:
-            return ', '.join(seq) + ' (any order)'
-        return seq[0] + ''.join(f' → {s}' for s in seq[1:])
+            return ', '.join(seq) + (' (any)' if show_any_hint else '')
+        return ' → '.join(seq) + (' (in order)' if show_seq_hint else '')
 
 
 def _result_range_str(min_r: int, max_r: int) -> str:
@@ -265,36 +264,32 @@ def _result_range_str(min_r: int, max_r: int) -> str:
 def format_header(lang: str = 'zh',
                   show_number: bool = True,
                   show_estimate: bool = True) -> str:
-    """Return the column header line + separator."""
-    if lang == 'zh':
-        parts = []
-        if show_number:
-            parts.append(f"{'編號':<9}")
-        parts.append(f"{'基礎時間範圍':<17}")
-        parts.append(f"{'建議操作'}")
-        if show_estimate:
-            # right-pad action col then append estimate header
-            # handled dynamically per row; just mark position
-            parts.append(f"{'推估值':>20}")
-        header = "".join(parts)
-    else:
-        parts = []
-        if show_number:
-            parts.append(f"{'#':<9}")
-        parts.append(f"{'Base Time':<17}")
-        parts.append(f"{'Suggested Action'}")
-        if show_estimate:
-            parts.append(f"{'Est. Result':>18}")
-        header = "".join(parts)
-
-    sep = "─" * 58
-    return header + "\n" + sep
+    """
+    Return the column header line + separator.
+    Columns are separated by \\t so the Text widget can align them via tab stops.
+    Tab order: [編號\\t] 基礎時間\\t 建議操作\\t [推估值]
+    """
+    parts = []
+    if show_number:
+        parts.append('編號' if lang == 'zh' else '#')
+        parts.append('\t')
+    parts.append('基礎時間範圍' if lang == 'zh' else 'Base Time Range')
+    parts.append('\t')
+    parts.append('建議操作' if lang == 'zh' else 'Suggested Action')
+    if show_estimate:
+        parts.append('\t')
+        parts.append('推估值' if lang == 'zh' else 'Est. Result')
+    header = ''.join(parts)
+    sep = '─' * 120
+    return header + '\n' + sep
 
 
 def format_group_tagged(group: tuple, index: int,
                         lang: str = 'zh',
                         show_number: bool = True,
-                        show_estimate: bool = True) -> list:
+                        show_estimate: bool = True,
+                        show_any_hint: bool = True,
+                        show_seq_hint: bool = True) -> list:
     """
     Return a list of (text_fragment, tag_name) tuples for one result row.
     Tags: 'col_num', 'col_range', 'col_action', 'col_estimate', 'newline'
@@ -311,16 +306,18 @@ def format_group_tagged(group: tuple, index: int,
         range_str = f"{minutes_to_str(base_start)}~{minutes_to_str(base_end)}"
 
     # 建議操作
-    action_str = format_sequence(seq, lang)
+    action_str = format_sequence(seq, lang, show_any_hint, show_seq_hint)
 
     # 推估值
     result_str = _result_range_str(min_result, max_result)
 
+    # Columns separated by \t; the Text widget uses configured tab stops
+    # for pixel-accurate alignment regardless of CJK / ASCII mix.
     parts = []
     if show_number:
-        parts.append((f"{case_str:<9}", 'col_num'))
-    parts.append((f"{range_str:<17}", 'col_range'))
-    parts.append((f"{action_str:<28}", 'col_action'))
+        parts.append((case_str + '\t', 'col_num'))
+    parts.append((range_str + '\t', 'col_range'))
+    parts.append((action_str + '\t', 'col_action'))
     if show_estimate:
         parts.append((result_str, 'col_estimate'))
     parts.append(('\n', 'newline'))
@@ -330,10 +327,13 @@ def format_group_tagged(group: tuple, index: int,
 def format_group_plain(group: tuple, index: int,
                        lang: str = 'zh',
                        show_number: bool = True,
-                       show_estimate: bool = True) -> str:
+                       show_estimate: bool = True,
+                       show_any_hint: bool = True,
+                       show_seq_hint: bool = True) -> str:
     """Plain-text version of format_group_tagged (for float window etc.)."""
     return "".join(t for t, _ in format_group_tagged(
-        group, index, lang, show_number, show_estimate))
+        group, index, lang, show_number, show_estimate,
+        show_any_hint, show_seq_hint))
 
 
 # ── 5-zone mode ───────────────────────────────────────────────────────────────
@@ -341,7 +341,9 @@ def format_group_plain(group: tuple, index: int,
 def compute_best5zones(buttons: list,
                        lang: str = 'zh',
                        show_number: bool = True,
-                       show_estimate: bool = True) -> list:
+                       show_estimate: bool = True,
+                       show_any_hint: bool = True,
+                       show_seq_hint: bool = True) -> list:
     """
     For each of the 5 fixed base-time zones, find the most commonly recommended
     sequence and compute the result range when that sequence is applied.
@@ -383,14 +385,14 @@ def compute_best5zones(buttons: list,
         else:
             res_str = "—"
 
-        action_str = format_sequence(best_seq, lang)
+        action_str = format_sequence(best_seq, lang, show_any_hint, show_seq_hint)
         case_str   = f"第{i + 1}種" if lang == 'zh' else f"Case {i + 1}"
 
         row_parts = []
         if show_number:
-            row_parts.append((f"{case_str:<9}", 'col_num'))
-        row_parts.append((f"{zone_label:<17}", 'col_range'))
-        row_parts.append((f"{action_str:<28}", 'col_action'))
+            row_parts.append((case_str + '\t', 'col_num'))
+        row_parts.append((zone_label + '\t', 'col_range'))
+        row_parts.append((action_str + '\t', 'col_action'))
         if show_estimate:
             row_parts.append((res_str, 'col_estimate'))
         row_parts.append(('\n', 'newline'))
@@ -405,7 +407,9 @@ def compute_tagged_results(buttons: list,
                            sort_order: str,
                            lang: str = 'zh',
                            show_number: bool = True,
-                           show_estimate: bool = True) -> list:
+                           show_estimate: bool = True,
+                           show_any_hint: bool = True,
+                           show_seq_hint: bool = True) -> list:
     """
     Full pipeline for the main results Text widget.
     Returns list of (text_fragment, tag_name) tuples.
@@ -417,7 +421,8 @@ def compute_tagged_results(buttons: list,
         return [(msg, 'muted')]
 
     if sort_order == 'best5zones':
-        return compute_best5zones(buttons, lang, show_number, show_estimate)
+        return compute_best5zones(buttons, lang, show_number, show_estimate,
+                                   show_any_hint, show_seq_hint)
 
     raw     = generate_all_results(buttons)
     groups  = group_results(raw)
@@ -428,7 +433,8 @@ def compute_tagged_results(buttons: list,
 
     row_parts = []
     for i, g in enumerate(sorted_):
-        row_parts.extend(format_group_tagged(g, i, lang, show_number, show_estimate))
+        row_parts.extend(format_group_tagged(g, i, lang, show_number, show_estimate,
+                                              show_any_hint, show_seq_hint))
 
     return header_parts + row_parts
 
@@ -437,7 +443,10 @@ def compute_plain_results(buttons: list,
                           sort_order: str,
                           lang: str = 'zh',
                           show_number: bool = True,
-                          show_estimate: bool = True) -> str:
+                          show_estimate: bool = True,
+                          show_any_hint: bool = True,
+                          show_seq_hint: bool = True) -> str:
     """Plain-text version for float window / copy-paste."""
-    tagged = compute_tagged_results(buttons, sort_order, lang, show_number, show_estimate)
+    tagged = compute_tagged_results(buttons, sort_order, lang, show_number,
+                                    show_estimate, show_any_hint, show_seq_hint)
     return "".join(t for t, _ in tagged)

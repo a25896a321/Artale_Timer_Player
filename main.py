@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Artale Timer Player  v1.0.2
+Artale Timer Player  v1.1.0
 Author  : oo_jump
-Title   : Artale Timer Player_v1.0.2
+Title   : Artale Timer Player_v1.1.0
 """
 
 import tkinter as tk
@@ -14,7 +14,8 @@ import json
 import copy
 import webbrowser
 import ctypes
-import ctypes.wintypes as wintypes
+
+from vk_hotkey import VKHotkeyListener, VKCaptureSingleKey, VK_CODES, VK_NAME_TO_CODE
 
 try:
     from PIL import Image, ImageTk
@@ -34,7 +35,7 @@ from calculator import (
 # App metadata
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION  = "1.0.2"
+VERSION  = "1.1.0"
 APP_NAME = f"Artale Timer Player_v{VERSION}"
 AUTHOR   = "oo_jump"
 
@@ -69,25 +70,9 @@ FONT_HINT   = (FONT_FAMILY, 8)
 FONT_BTN    = (FONT_FAMILY, 9, "bold")
 FONT_TIME   = (FONT_FAMILY, 11, "bold")
 
-# ── VK tables ──────────────────────────────────────────────────────────────
-VK_CODE_MAP: dict = {
-    'NumPad0': 0x60, 'NumPad1': 0x61, 'NumPad2': 0x62, 'NumPad3': 0x63,
-    'NumPad4': 0x64, 'NumPad5': 0x65, 'NumPad6': 0x66, 'NumPad7': 0x67,
-    'NumPad8': 0x68, 'NumPad9': 0x69, 'NumPad*': 0x6A, 'NumPad+': 0x6B,
-    'NumPad-': 0x6D, 'NumPad.': 0x6E, 'NumPad/': 0x6F,
-    **{f'F{n}': 0x6F + n for n in range(1, 13)},
-    **{c: 0x40 + i for i, c in enumerate('ABCDEFGHIJKLMNOPQRSTUVWXYZ', 1)},
-}
-VK_NAME_MAP: dict = {v: k for k, v in VK_CODE_MAP.items()}
-
-KEYSYM_VK: dict = {
-    'KP_1': 0x61, 'KP_2': 0x62, 'KP_3': 0x63, 'KP_4': 0x64,
-    'KP_5': 0x65, 'KP_6': 0x66, 'KP_7': 0x67, 'KP_8': 0x68,
-    'KP_9': 0x69, 'KP_0': 0x60,
-    'KP_Add': 0x6B, 'KP_Subtract': 0x6D,
-    'KP_Decimal': 0x6E, 'KP_Multiply': 0x6A, 'KP_Divide': 0x6F,
-    **{f'F{n}': 0x6F + n for n in range(1, 13)},
-}
+# ── VK aliases (backward-compat shim using vk_hotkey tables) ───────────────
+VK_CODE_MAP: dict = VK_NAME_TO_CODE   # name → code
+VK_NAME_MAP: dict = VK_CODES          # code → name
 
 TIME_BUTTONS = [
     ('btn_10min', '10分'), ('btn_30min', '30分'),
@@ -101,7 +86,7 @@ SORT_ORDERS = ['base_desc', 'base_asc', 'result_desc', 'result_asc', 'best5zones
 # ── Default settings ────────────────────────────────────────────────────────
 DEFAULT_SETTINGS: dict = {
     "language": "zh",
-    "topmost":  False,
+    "topmost":  True,
     "sort_order": "base_desc",
     "opacity":  1.0,
     "hotkeys": {
@@ -132,10 +117,11 @@ DEFAULT_SETTINGS: dict = {
         "float_bg":             "#0f0f1a",
         "float_x":              100,
         "float_y":              100,
-        "float_width":          240,
+        "float_width":          420,
         "float_height":         390,
         "float_opacity":        0.92,
         "show_float_sel":       True,
+        "float_show_estimate":  True,
         "float_font_size":      8,
         "float_fg":             "#7de88a",
         "float_results_mode":   "expand",   # "expand" | "scroll"
@@ -147,6 +133,8 @@ DEFAULT_SETTINGS: dict = {
         "results_fg":           "#7de88a",
         "results_show_number":  True,
         "results_show_estimate":True,
+        "show_hint_any":        True,
+        "show_hint_seq":        True,
     },
 }
 
@@ -162,55 +150,6 @@ def is_admin() -> bool:
         return False
 
 
-class Win32HotkeyListener:
-    WM_HOTKEY = 0x0312
-    WM_QUIT   = 0x0012
-
-    def __init__(self, id_to_action: dict, callback):
-        self._id_to_action = id_to_action
-        self._callback     = callback
-        self._thread       = None
-        self._win32_tid    = 0
-
-    def start(self):
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-
-    def stop(self):
-        if self._win32_tid:
-            ctypes.windll.user32.PostThreadMessageW(
-                self._win32_tid, self.WM_QUIT, 0, 0)
-
-    def _run(self):
-        self._win32_tid = ctypes.windll.kernel32.GetCurrentThreadId()
-        msg = wintypes.MSG()
-        while True:
-            bRet = ctypes.windll.user32.GetMessageW(ctypes.byref(msg), None, 0, 0)
-            if bRet == 0 or bRet == -1:
-                break
-            if msg.message == self.WM_HOTKEY:
-                action = self._id_to_action.get(msg.wParam)
-                if action and self._callback:
-                    self._callback(action)
-        for hid in self._id_to_action:
-            ctypes.windll.user32.UnregisterHotKey(None, hid)
-
-
-def build_hotkey_listener(hotkeys_cfg: dict, callback):
-    actions = {k: hotkeys_cfg[k]["vk"] for k in hotkeys_cfg}
-    id_to_action = {}
-    for i, (action, vk) in enumerate(actions.items(), start=1):
-        if ctypes.windll.user32.RegisterHotKey(None, i, 0, vk):
-            id_to_action[i] = action
-        else:
-            for j in range(1, i):
-                ctypes.windll.user32.UnregisterHotKey(None, j)
-            return None
-    listener = Win32HotkeyListener(id_to_action, callback)
-    listener.start()
-    return listener
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Main Application
 # ══════════════════════════════════════════════════════════════════════════════
@@ -222,8 +161,8 @@ class ArtaleTimerPlayer:
         self.settings: dict = self._load_settings()
         self.lang:      str  = self.settings["language"]
         self.is_topmost:bool = self.settings["topmost"]
-        self._admin:    bool = is_admin()
         self._hk_listener    = None
+        self._vk_to_action: dict = {}
 
         self._hotkey_win = None
         self._iface_win  = None
@@ -240,10 +179,8 @@ class ArtaleTimerPlayer:
         self._setup_root()
         self._build_ui()
 
-        if self._admin:
-            self._start_global_hotkeys()
-        else:
-            self._bind_local_hotkeys()
+        # VKHotkeyListener works without admin rights
+        self._start_global_hotkeys()
 
         self._update_hint()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -285,8 +222,8 @@ class ArtaleTimerPlayer:
         self.root.configure(bg=BG_MAIN)
         # ① Resizable main window (request #6)
         self.root.resizable(True, True)
-        self.root.minsize(540, 580)
-        w, h = 540, 630
+        self.root.minsize(570, 580)
+        w, h = 600, 640
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         self.root.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
         self.root.attributes('-topmost', self.is_topmost)
@@ -303,7 +240,6 @@ class ArtaleTimerPlayer:
         self._build_time_buttons_frame()
         self._build_preview_frame()
         self._build_results_frame()
-        self._build_opacity_frame()
 
     # ── hint_frame ────────────────────────────────────────────────────────
 
@@ -357,6 +293,18 @@ class ArtaleTimerPlayer:
         self.sponsor_btn = _btn(self.t('btn_sponsor'),   self._open_sponsor, w=7)
         self.lang_btn    = _btn(self.t('btn_lang'),      self._toggle_lang, w=5, fg=FG_ACCENT)
         self.float_btn   = _btn(self.t('btn_float'),     self._toggle_float, w=6)
+
+        # Opacity slider — compact, right-docked (no label / no % text per #2)
+        op_fr = tk.Frame(self.top_frame, bg=BG_CARD)
+        op_fr.pack(side=tk.RIGHT, padx=(0, 6), pady=2)
+        self.opacity_var = tk.DoubleVar(value=self.settings.get("opacity", 1.0))
+        tk.Scale(op_fr, from_=0.2, to=1.0, resolution=0.05,
+                 orient=tk.HORIZONTAL, variable=self.opacity_var,
+                 bg=BG_CARD, fg=FG_TEXT, troughcolor=BG_BTN,
+                 highlightthickness=0, bd=0,
+                 showvalue=False, length=72, sliderlength=12,
+                 command=self._on_opacity_change
+                 ).pack(side=tk.LEFT, pady=0)
 
     # ── Time buttons (4 × 2) ─────────────────────────────────────────────
 
@@ -489,6 +437,7 @@ class ArtaleTimerPlayer:
             state=tk.DISABLED, wrap=tk.NONE,
             yscrollcommand=sb.set,
             selectbackground=BG_BTN_HV,
+            width=1,   # ③ no forced min-width; let container control sizing
             padx=8, pady=6)
         self.results_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         sb.config(command=self.results_text.yview)
@@ -499,6 +448,9 @@ class ArtaleTimerPlayer:
         iface   = self.settings["interface"]
         res_fg  = iface.get("results_fg", FG_RESULT)
         res_sz  = iface.get("results_font_size", 9)
+        # ① Tab stops for pixel-accurate column alignment (px):
+        #   col_num ends ~75px, col_range ends ~200px, col_action ends ~460px
+        self.results_text.config(tabs=(75, 200, 460))
         self.results_text.tag_configure('header',
             foreground=FG_RESULT_H,
             font=("Consolas", res_sz, "bold"))
@@ -517,13 +469,15 @@ class ArtaleTimerPlayer:
         iface        = self.settings["interface"]
         show_number  = iface.get("results_show_number",   True)
         show_estimate= iface.get("results_show_estimate", True)
+        show_any     = iface.get("show_hint_any", True)
+        show_seq     = iface.get("show_hint_seq", True)
 
         if not self.selected:
             txt.insert(tk.END, self.t('results_empty') + '\n', 'muted')
         else:
             tagged = compute_tagged_results(
                 self.selected, self.settings["sort_order"],
-                self.lang, show_number, show_estimate)
+                self.lang, show_number, show_estimate, show_any, show_seq)
             for text_part, tag in tagged:
                 txt.insert(tk.END, text_part, tag)
 
@@ -532,30 +486,6 @@ class ArtaleTimerPlayer:
         if self._float_win and self._float_win.winfo_exists():
             self._float_update_results()
 
-    # ── Opacity frame ─────────────────────────────────────────────────────
-
-    def _build_opacity_frame(self):
-        of = tk.Frame(self.root, bg=BG_MAIN, pady=2)
-        of.pack(fill=tk.X, padx=6, pady=(0, 4))
-
-        self.opacity_lbl = tk.Label(
-            of, text=self.t('opacity_label'),
-            bg=BG_MAIN, fg=FG_HINT, font=FONT_HINT)
-        self.opacity_lbl.pack(side=tk.LEFT, padx=4)
-
-        self.opacity_var = tk.DoubleVar(value=self.settings.get("opacity", 1.0))
-        tk.Scale(
-            of, from_=0.2, to=1.0, resolution=0.05,
-            orient=tk.HORIZONTAL, variable=self.opacity_var,
-            bg=BG_MAIN, fg=FG_TEXT, troughcolor=BG_BTN,
-            highlightthickness=0, showvalue=False, length=280,
-            command=self._on_opacity_change
-        ).pack(side=tk.LEFT, padx=4)
-
-        self.opacity_pct = tk.Label(
-            of, text=f"{int(self.opacity_var.get()*100)}%",
-            bg=BG_MAIN, fg=FG_HINT, font=FONT_HINT, width=4)
-        self.opacity_pct.pack(side=tk.LEFT)
 
     # ══════════════════════════════════════════════════════════════════════
     # Event handlers
@@ -604,7 +534,6 @@ class ArtaleTimerPlayer:
         v = self.opacity_var.get()
         self.root.attributes('-alpha', v)
         self.settings["opacity"] = v
-        self.opacity_pct.config(text=f"{int(v*100)}%")
 
     def _toggle_topmost(self):
         self.is_topmost = not self.is_topmost
@@ -640,28 +569,40 @@ class ArtaleTimerPlayer:
         self.sort_var.set(
             self._sort_labels[SORT_ORDERS.index(self.settings["sort_order"])])
         self._update_results()
-        self.opacity_lbl.config(text=self.t('opacity_label'))
         for (label_key, name) in TIME_BUTTONS:
             if name in self.time_btn_widgets:
                 self.time_btn_widgets[name].config(
                     text=self._time_btn_label(label_key, name))
 
-    # ── Hotkeys ───────────────────────────────────────────────────────────
+    # ── Hotkeys (VK-based, works without admin) ───────────────────────────
 
     def _on_hotkey(self, action: str):
+        """Dispatch a hotkey action on the main thread."""
         if action in ('10分', '30分', '50分', '1hr', '2hr', '4hr', '9hr', 'x2'):
-            self.root.after(0, lambda a=action: self._on_time_btn(a))
+            self._on_time_btn(action)
         elif action == 'undo':
-            self.root.after(0, self._action_undo)
+            self._action_undo()
         elif action == 'clear':
-            self.root.after(0, self._action_clear)
+            self._action_clear()
+
+    def _on_vk_key(self, vk_code: int, _vk_name: str):
+        """Called from VKHotkeyListener thread — schedule on main thread."""
+        action = self._vk_to_action.get(vk_code)
+        if action:
+            self.root.after(0, lambda a=action: self._on_hotkey(a))
 
     def _start_global_hotkeys(self):
-        try:
-            self._hk_listener = build_hotkey_listener(
-                self.settings["hotkeys"], self._on_hotkey)
-        except Exception:
-            self._bind_local_hotkeys()
+        """Build vk→action map and start the VK listener."""
+        self._vk_to_action = {
+            cfg["vk"]: action
+            for action, cfg in self.settings["hotkeys"].items()
+            if cfg.get("vk", 0)
+        }
+        if self._hk_listener:
+            self._hk_listener.stop()
+        self._hk_listener = VKHotkeyListener(self._on_vk_key)
+        if not self._hk_listener.start():
+            self._hk_listener = None
 
     def _stop_global_hotkeys(self):
         if self._hk_listener:
@@ -669,6 +610,7 @@ class ArtaleTimerPlayer:
             self._hk_listener = None
 
     def _bind_local_hotkeys(self):
+        """Fallback Tkinter bindings (only used if VK init fails)."""
         for btn_name in DEFAULT_SETTINGS["hotkeys"]:
             vk   = self.settings["hotkeys"][btn_name]["vk"]
             ksym = VK_NAME_MAP.get(vk, "")
@@ -720,25 +662,25 @@ class ArtaleTimerPlayer:
 
         key_vars: dict = {}
         key_btns: dict = {}
-        capturing = {'active': None}
+        _capturer = [None]   # holds the active VKCaptureSingleKey instance
 
         def start_capture(action):
-            if capturing['active']: return
-            capturing['active'] = action
+            # Stop any running capturer
+            if _capturer[0]:
+                _capturer[0].stop()
+                _capturer[0] = None
             key_btns[action].config(text=self.t('hotkey_listening'),
                                     fg=FG_ACCENT, bg=BG_BTN_ACT)
-            win.focus_force()
-            win.bind('<KeyPress>', on_keypress)
 
-        def on_keypress(event):
-            action = capturing['active']
-            if not action: return
-            vk   = KEYSYM_VK.get(event.keysym, event.keycode)
-            name = VK_NAME_MAP.get(vk, event.keysym)
-            key_vars[action].set(name)
-            key_btns[action].config(text=name, fg=FG_TEXT, bg=BG_BTN)
-            capturing['active'] = None
-            win.unbind('<KeyPress>')
+            def on_captured(vk_code: int, vk_name: str):
+                key_vars[action].set(vk_name)
+                win.after(0, lambda: key_btns[action].config(
+                    text=vk_name, fg=FG_TEXT, bg=BG_BTN))
+                _capturer[0] = None
+
+            cap = VKCaptureSingleKey(on_captured)
+            cap.start_capture()
+            _capturer[0] = cap
 
         for r, (action, label_key) in enumerate(actions, start=1):
             tk.Label(fr, text=self.t(label_key), bg=BG_MAIN, fg=FG_TEXT,
@@ -762,9 +704,8 @@ class ArtaleTimerPlayer:
                 self.settings["hotkeys"][action] = {
                     "vk": VK_CODE_MAP.get(name, 0), "name": name}
             self._save_settings()
-            self._stop_global_hotkeys()
-            if self._admin: self._start_global_hotkeys()
-            else:           self._bind_local_hotkeys()
+            # Restart VK listener with updated mappings
+            self._start_global_hotkeys()
             messagebox.showinfo(self.t('hotkey_title'),
                                 self.t('hotkey_saved_msg'), parent=win)
 
@@ -805,23 +746,33 @@ class ArtaleTimerPlayer:
         iface = self.settings["interface"]
         tmp: dict = copy.deepcopy(iface)
 
+        # Reliable value collection: store all widget vars here
+        _spin_vars:  dict = {}   # cfg_key -> tk.StringVar
+        _check_vars: dict = {}   # cfg_key -> tk.BooleanVar
+
         # ── widget builders ────────────────────────────────────────────
 
         def _scf(parent):
-            """Scrollable canvas frame."""
-            canvas = tk.Canvas(parent, bg=BG_MAIN, bd=0,
-                               highlightthickness=0, width=340)
-            vsb = tk.Scrollbar(parent, orient=tk.VERTICAL,
-                               command=canvas.yview)
+            """② Fixed scrollable canvas frame — items visible on open."""
+            canvas = tk.Canvas(parent, bg=BG_MAIN, bd=0, highlightthickness=0)
+            vsb = tk.Scrollbar(parent, orient=tk.VERTICAL, command=canvas.yview)
             canvas.configure(yscrollcommand=vsb.set)
             vsb.pack(side=tk.RIGHT, fill=tk.Y)
             canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
             inner = tk.Frame(canvas, bg=BG_MAIN)
             win_id = canvas.create_window((0, 0), window=inner, anchor='nw')
-            def on_conf(e):
+
+            def _on_canvas_conf(e):
+                # Use actual event width so inner frame is correctly sized
+                canvas.itemconfigure(win_id, width=e.width)
+                canvas.after_idle(
+                    lambda: canvas.configure(scrollregion=canvas.bbox('all')))
+
+            def _on_inner_conf(e):
                 canvas.configure(scrollregion=canvas.bbox('all'))
-                canvas.itemconfigure(win_id, width=canvas.winfo_width())
-            inner.bind('<Configure>', on_conf)
+
+            canvas.bind('<Configure>', _on_canvas_conf)
+            inner.bind('<Configure>', _on_inner_conf)
             canvas.bind('<MouseWheel>',
                         lambda e: canvas.yview_scroll(-1*(e.delta//120), 'units'))
             return inner
@@ -862,6 +813,7 @@ class ArtaleTimerPlayer:
         def _check_row(parent, row, label_key, cfg_key, default=True):
             _lbl(parent, row, label_key)
             v = tk.BooleanVar(value=tmp.get(cfg_key, default))
+            _check_vars[cfg_key] = v        # ④ store for reliable read
             tk.Checkbutton(parent, variable=v, bg=BG_MAIN, fg=FG_TEXT,
                            activebackground=BG_MAIN, selectcolor=BG_BTN,
                            font=FONT_MAIN,
@@ -871,6 +823,7 @@ class ArtaleTimerPlayer:
         def _spin_row(parent, row, label_key, cfg_key, lo, hi):
             _lbl(parent, row, label_key)
             v = tk.StringVar(value=str(tmp.get(cfg_key, lo)))
+            _spin_vars[cfg_key] = v         # ④ store for reliable read
             def upd(k=cfg_key, sv=v):
                 try: tmp[k] = int(sv.get())
                 except ValueError: pass
@@ -920,12 +873,13 @@ class ArtaleTimerPlayer:
         _spin_row (f,  7, 'ui_float_height',        'float_height', 120, 800)
         _spin_row (f,  8, 'ui_float_x',             'float_x', 0, 3840)
         _spin_row (f,  9, 'ui_float_y',             'float_y', 0, 2160)
-        _check_row(f, 10, 'ui_show_float_sel',      'show_float_sel')
+        _check_row(f, 10, 'ui_show_float_sel',       'show_float_sel')
+        _check_row(f, 11, 'ui_float_show_estimate',  'float_show_estimate')
 
         # Float results mode — radio buttons
-        _lbl(f, 11, 'ui_float_results_mode')
+        _lbl(f, 12, 'ui_float_results_mode')
         mode_fr = tk.Frame(f, bg=BG_MAIN)
-        mode_fr.grid(row=11, column=1, sticky='w', padx=4, pady=3)
+        mode_fr.grid(row=12, column=1, sticky='w', padx=4, pady=3)
         mode_var = tk.StringVar(value=tmp.get('float_results_mode', 'expand'))
         for val, lkey in [('expand', 'ui_float_mode_expand'),
                           ('scroll', 'ui_float_mode_scroll')]:
@@ -936,12 +890,12 @@ class ArtaleTimerPlayer:
                 command=lambda v=val: tmp.update({'float_results_mode': v})
             ).pack(anchor='w')
 
-        _sep(f,  12, 'ui_sec_float_btn')
-        _color_row(f, 13, 'ui_float_btn_color', 'float_btn_color')
-        _check_row(f, 14, 'ui_float_btn_bg_on', 'float_btn_bg_on')
+        _sep(f,  13, 'ui_sec_float_btn')
+        _color_row(f, 14, 'ui_float_btn_color', 'float_btn_color')
+        _check_row(f, 15, 'ui_float_btn_bg_on', 'float_btn_bg_on')
         tk.Label(f, text=self.t('ui_float_note'),
                  bg=BG_MAIN, fg=FG_HINT, font=FONT_HINT
-                 ).grid(row=15, column=0, columnspan=2, pady=6, padx=4)
+                 ).grid(row=16, column=0, columnspan=2, pady=6, padx=4)
 
         # ── Tab 3: Results Display ─────────────────────────────────────
         t_res = tk.Frame(nb, bg=BG_MAIN)
@@ -949,24 +903,33 @@ class ArtaleTimerPlayer:
         f = _scf(t_res)
         _spin_row (f, 0, 'ui_results_font_size',     'results_font_size', 7, 20)
         _color_row(f, 1, 'ui_results_fg',             'results_fg')
-        _check_row(f, 2, 'ui_results_show_number',    'results_show_number', True)
+        _check_row(f, 2, 'ui_results_show_number',    'results_show_number',   True)
         _check_row(f, 3, 'ui_results_show_estimate',  'results_show_estimate', True)
+        _check_row(f, 4, 'ui_show_hint_any',           'show_hint_any',         True)
+        _check_row(f, 5, 'ui_show_hint_seq',           'show_hint_seq',         True)
 
-        _lbl(f, 4, 'ui_sort_order')
+        _lbl(f, 6, 'ui_sort_order')
         sort_labels2 = [self.t(f'sort_{o}') for o in SORT_ORDERS]
         sort_var2    = tk.StringVar(
             value=self.t(f'sort_{self.settings["sort_order"]}'))
         ttk.Combobox(f, textvariable=sort_var2, values=sort_labels2,
                      state='readonly', width=22, font=FONT_HINT
-                     ).grid(row=4, column=1, sticky='w', padx=4, pady=3)
+                     ).grid(row=6, column=1, sticky='w', padx=4, pady=3)
 
         # ── Bottom controls ────────────────────────────────────────────
         bot = tk.Frame(win, bg=BG_MAIN, pady=8)
         bot.pack(fill=tk.X, padx=12)
 
         def save_iface():
-            # Update float results mode from radio
+            # ④ Force-read ALL spinbox and checkbox values before saving
+            for k, sv in _spin_vars.items():
+                try:    tmp[k] = int(sv.get())
+                except ValueError: pass
+            for k, bv in _check_vars.items():
+                tmp[k] = bv.get()
+            # Float results mode from radio
             tmp['float_results_mode'] = mode_var.get()
+
             self.settings["interface"].update(tmp)
             # Sort order
             try:
@@ -982,9 +945,16 @@ class ArtaleTimerPlayer:
             self._configure_result_tags()
             rfs = tmp.get("results_font_size", 9)
             rfg = tmp.get("results_fg", FG_RESULT)
-            self.results_text.config(
-                font=("Consolas", rfs), fg=rfg)
+            self.results_text.config(font=("Consolas", rfs), fg=rfg)
             self._update_results()
+            # ③ Refresh float window immediately if open
+            if self._float_win and self._float_win.winfo_exists():
+                x = self._float_win.winfo_x()
+                y = self._float_win.winfo_y()
+                self.settings["interface"]["float_x"] = x
+                self.settings["interface"]["float_y"] = y
+                self._close_float()
+                self._open_float()
             messagebox.showinfo(self.t('ui_title'),
                                 self.t('ui_saved_msg'), parent=win)
 
@@ -1048,7 +1018,7 @@ class ArtaleTimerPlayer:
         f_fg       = iface.get("float_fg", FG_RESULT)
         show_sel   = iface.get("show_float_sel", True)
         res_mode   = iface.get("float_results_mode", "expand")
-        fw         = iface.get("float_width",  240)
+        fw         = iface.get("float_width",  420)
         fh         = iface.get("float_height", 390)
         fx         = iface.get("float_x", 100)
         fy         = iface.get("float_y", 100)
@@ -1164,15 +1134,15 @@ class ArtaleTimerPlayer:
                 padx=4, pady=2)
             self._float_res_txt.pack(fill=tk.X, padx=2, pady=(0, 2))
 
-        # Common tags for results text
-        for _txt in (self._float_res_txt,):
-            _txt.tag_configure('header',       foreground=FG_RESULT_H)
-            _txt.tag_configure('col_num',      foreground=FG_HINT)
-            _txt.tag_configure('col_range',    foreground=FG_TEXT)
-            _txt.tag_configure('col_action',   foreground=FG_WHITE)
-            _txt.tag_configure('col_estimate', foreground=f_fg)
-            _txt.tag_configure('muted',        foreground=FG_MUTED)
-            _txt.tag_configure('newline',      foreground=f_fg)
+        # ① Tab stops + tags for float results text (same column logic as main)
+        self._float_res_txt.config(tabs=(75, 200, 460))
+        self._float_res_txt.tag_configure('header',       foreground=FG_RESULT_H)
+        self._float_res_txt.tag_configure('col_num',      foreground=FG_HINT)
+        self._float_res_txt.tag_configure('col_range',    foreground=FG_TEXT)
+        self._float_res_txt.tag_configure('col_action',   foreground=FG_WHITE)
+        self._float_res_txt.tag_configure('col_estimate', foreground=f_fg)
+        self._float_res_txt.tag_configure('muted',        foreground=FG_MUTED)
+        self._float_res_txt.tag_configure('newline',      foreground=f_fg)
 
         # ① Resize grip (bottom-right)
         grip = tk.Label(win, text='◢', bg=bg, fg=FG_MUTED,
@@ -1250,7 +1220,9 @@ class ArtaleTimerPlayer:
 
         iface        = self.settings["interface"]
         show_number  = iface.get("results_show_number",   True)
-        show_estimate= iface.get("results_show_estimate", True)
+        show_estimate= iface.get("float_show_estimate",   True)
+        show_any     = iface.get("show_hint_any", True)
+        show_seq     = iface.get("show_hint_seq", True)
         res_mode     = iface.get("float_results_mode", "expand")
 
         txt = self._float_res_txt
@@ -1262,7 +1234,7 @@ class ArtaleTimerPlayer:
         else:
             tagged = compute_tagged_results(
                 self.selected, self.settings["sort_order"],
-                self.lang, show_number, show_estimate)
+                self.lang, show_number, show_estimate, show_any, show_seq)
             for text_part, tag in tagged:
                 txt.insert(tk.END, text_part, tag)
 

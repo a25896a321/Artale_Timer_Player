@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 Artale Timer Player - Translations
-Author: oo_jump  v1.0.2
+Author: oo_jump  v1.1.0
 """
 
 TRANSLATIONS = {
     'zh': {
-        'title':  'Artale Timer Player_v1.0.2',
+        'title':  'Artale Timer Player_v1.1.0',
         'author': 'oo_jump',
 
         # hint_frame
@@ -18,11 +18,11 @@ TRANSLATIONS = {
         'hint_ready':         '請選擇時間按鈕以開始計算',
 
         # top_frame 按鈕
-        'btn_topmost_on':  '📌 置頂',
-        'btn_topmost_off': '📌 置頂',
-        'btn_hotkeys':     '💾 快捷鍵',
-        'btn_interface':   '🖥 介面設定',
-        'btn_sponsor':     '❤️ 贊助',
+        'btn_topmost_on':  '📌置頂',
+        'btn_topmost_off': '📌置頂',
+        'btn_hotkeys':     '💾快捷鍵',
+        'btn_interface':   '🖥介面設定',
+        'btn_sponsor':     '❤贊助',
         'btn_lang':        'EN',
         'btn_float':       '懸浮框',
 
@@ -117,6 +117,9 @@ TRANSLATIONS = {
         'ui_float_mode_expand':  '下方展開所有可能（預設）',
         'ui_float_mode_scroll':  '滾動頁面方式',
 
+        # 懸浮框 tab — 推估值顯示
+        'ui_float_show_estimate':'顯示推估值',
+
         # 懸浮框 tab — 按鈕設定
         'ui_float_btn_color':    '按鈕文字顏色',
         'ui_float_btn_bg_on':    '啟用按鈕背景',
@@ -126,6 +129,8 @@ TRANSLATIONS = {
         'ui_results_fg':            '計算結果文字顏色',
         'ui_results_show_number':   '顯示編號',
         'ui_results_show_estimate': '顯示推估值',
+        'ui_show_hint_any':         '顯示（任意）提示',
+        'ui_show_hint_seq':         '顯示（依序）提示',
         'ui_sort_order':            '結果排列方式',
 
         # 共用
@@ -157,7 +162,7 @@ TRANSLATIONS = {
     },
 
     'en': {
-        'title':  'Artale Timer Player_v1.0.2',
+        'title':  'Artale Timer Player_v1.1.0',
         'author': 'oo_jump',
 
         'hint_topmost_on':    '📌 Always on Top',
@@ -171,7 +176,7 @@ TRANSLATIONS = {
         'btn_topmost_off': '📌 Top',
         'btn_hotkeys':     '💾 Hotkeys',
         'btn_interface':   '🖥 Interface',
-        'btn_sponsor':     '❤️ Sponsor',
+        'btn_sponsor':     '❤ Sponsor',
         'btn_lang':        '中文',
         'btn_float':       'Float',
 
@@ -252,6 +257,8 @@ TRANSLATIONS = {
         'ui_float_mode_expand':  'Expand all (default)',
         'ui_float_mode_scroll':  'Scrollable view',
 
+        'ui_float_show_estimate':'Show est. value',
+
         'ui_float_btn_color':    'Button text color',
         'ui_float_btn_bg_on':    'Enable button background',
 
@@ -259,6 +266,8 @@ TRANSLATIONS = {
         'ui_results_fg':            'Result text color',
         'ui_results_show_number':   'Show case number',
         'ui_results_show_estimate': 'Show est. value',
+        'ui_show_hint_any':         'Show (any) hint',
+        'ui_show_hint_seq':         'Show (in order) hint',
         'ui_sort_order':            'Sort order',
 
         'ui_choose_color': 'Pick',
