@@ -1,5 +1,8 @@
 # Artale Timer Player
 
+## [ ⏬ 點此下載最新版本 v1.1.1 安裝包 ]
+https://github.com/a25896a321/Artale_Timer_Player/releases/download/v1.1.1/Artale_Timer_Player_v1.1.1.rar
+
 > 作者：oo_jump　｜　版本：1.1.1　｜　語言：Python 3.10+
 
 一款專為 Artale 設計的**互動按鈕邏輯計算工具**，幫助玩家快速計算最佳增時方案，讓基礎時間盡可能接近 11:50（最高上限 12:00）。
