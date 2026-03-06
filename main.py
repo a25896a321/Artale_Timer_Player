@@ -39,10 +39,17 @@ VERSION  = "1.1.1"
 APP_NAME = f"Artale Timer Player_v{VERSION}"
 AUTHOR   = "oo_jump"
 
-SCRIPT_DIR    = os.path.dirname(os.path.abspath(__file__))
-SETTINGS_FILE = os.path.join(SCRIPT_DIR, "settings.json")
-PNG_DIR       = os.path.join(SCRIPT_DIR, "png_type")
-ICON_PATH     = os.path.join(PNG_DIR, "Artale_timer_player.ico")
+if getattr(sys, 'frozen', False):
+    # Running as a PyInstaller one-file bundle
+    SCRIPT_DIR  = os.path.dirname(sys.executable)   # next to the .exe (for settings.json)
+    _BUNDLE_DIR = sys._MEIPASS                       # extracted resources temp dir
+else:
+    SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
+    _BUNDLE_DIR = SCRIPT_DIR
+
+SETTINGS_FILE = os.path.join(SCRIPT_DIR,  "settings.json")
+PNG_DIR       = os.path.join(_BUNDLE_DIR, "png_type")
+ICON_PATH     = os.path.join(PNG_DIR,     "Artale_timer_player.ico")
 
 # ── Colour palette ─────────────────────────────────────────────────────────
 BG_MAIN    = "#0f0f1a"
