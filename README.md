@@ -1,6 +1,6 @@
 # Artale Timer Player
 
-> 作者：oo_jump　｜　版本：1.1.0　｜　語言：Python 3.10+
+> 作者：oo_jump　｜　版本：1.1.1　｜　語言：Python 3.10+
 
 一款專為 Artale 設計的**互動按鈕邏輯計算工具**，幫助玩家快速計算最佳增時方案，讓基礎時間盡可能接近 11:50（最高上限 12:00）。
 
@@ -96,7 +96,7 @@ Artale_Timer_player/
 
 ## 版本歷程
 
-### v1.1.0 — 2026-03-06
+### v1.1.1 — 2026-03-06
 - **熱鍵系統全面升級**：引入 `vk_hotkey.py`（參考 New_Countdown_Timer 架構），改用 `GetAsyncKeyState` 輪詢，完全不依賴 `RegisterHotKey`／管理員權限
   - `Win32HotkeyListener` 及 `build_hotkey_listener` 已移除，由 `VKHotkeyListener` 取代
   - 快捷鍵設定視窗的按鍵捕獲改用 `VKCaptureSingleKey`，可精確區分數字鍵盤與主鍵盤
@@ -106,7 +106,7 @@ Artale_Timer_player/
 - **計算結果新增提示詞開關**：介面設定「結果顯示」Tab 中新增「顯示（任意）提示」與「顯示（依序）提示」兩個勾選框（預設均勾選）
 - **計算結果文字欄位不強制最小寬度**（`width=1`）
 - **新增 HTML 使用說明文件**（`docs/guide.html`）
-- 版本號更新至 v1.1.0
+- 版本號更新至 v1.1.1
 
 ### v1.0.6 — 2026-03-06
 - 修正透明度滑桿在 top_frame 的顯示，縮短 slider 長度並加強間距以避免遮蔽文字標籤
@@ -138,7 +138,7 @@ Artale_Timer_player/
 - 推估值顯示實際計算區間（min~max），不再固定顯示 11:50
 - 推估值排序（大→小 / 小→大）以 max 推估值為基準
 - 允許選擇 1+ 個時間按鈕即觸發計算（不再強制選滿 4 個）
-- 圖示改用 `Artale_timer_player_ico.ico`
+- 圖示改用 `Artale_timer_player.ico`
 - 編號格式改為阿拉伯數字（第1種～第20種）
 - 「顯示3個最佳解」改為「顯示5個區間建議」（固定 5 個基礎時間區間）
 - 懸浮框模式新增選擇按鈕顯示及計算結果顯示（含捲軸）

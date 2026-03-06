@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 Artale Timer Player - Translations
-Author: oo_jump  v1.1.0
+Author: oo_jump  v1.1.1
 """
 
 TRANSLATIONS = {
     'zh': {
-        'title':  'Artale Timer Player_v1.1.0',
+        'title':  'Artale Timer Player_v1.1.1',
         'author': 'oo_jump',
 
         # hint_frame
@@ -162,7 +162,7 @@ TRANSLATIONS = {
     },
 
     'en': {
-        'title':  'Artale Timer Player_v1.1.0',
+        'title':  'Artale Timer Player_v1.1.1',
         'author': 'oo_jump',
 
         'hint_topmost_on':    '📌 Always on Top',

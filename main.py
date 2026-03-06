@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Artale Timer Player  v1.1.0
+Artale Timer Player  v1.1.1
 Author  : oo_jump
-Title   : Artale Timer Player_v1.1.0
+Title   : Artale Timer Player_v1.1.1
 """
 
 import tkinter as tk
@@ -35,14 +35,14 @@ from calculator import (
 # App metadata
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION  = "1.1.0"
+VERSION  = "1.1.1"
 APP_NAME = f"Artale Timer Player_v{VERSION}"
 AUTHOR   = "oo_jump"
 
 SCRIPT_DIR    = os.path.dirname(os.path.abspath(__file__))
 SETTINGS_FILE = os.path.join(SCRIPT_DIR, "settings.json")
 PNG_DIR       = os.path.join(SCRIPT_DIR, "png_type")
-ICON_PATH     = os.path.join(PNG_DIR, "Artale_timer_player_ico.ico")
+ICON_PATH     = os.path.join(PNG_DIR, "Artale_timer_player.ico")
 
 # ── Colour palette ─────────────────────────────────────────────────────────
 BG_MAIN    = "#0f0f1a"
